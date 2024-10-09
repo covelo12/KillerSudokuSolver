@@ -3,15 +3,71 @@
 #include <time.h>
 #include <stdbool.h>
 
+
+enum colour{
+    NO_COLOR,
+    BLUE,
+    RED,
+    YELLOW,
+    PINK,
+    PURPLE,
+    GREEN
+};
+typedef struct {
+    int val;
+    enum colour color;
+}cell;
+typedef struct {
+    int x;
+    int y;
+}coordinates;
+
 void fillDiagonals(int board[9][9]);
 void shuffle(int* array, size_t n);
 bool isSafe(int board[9][9], int row, int col, int num);
 bool solveSudoku(int board[9][9]);
 void removeElements(int board[9][9], int holes);
 void printBoard(int board[9][9]);
+void toKiller(int board[9][9], cell killerBoard[9][9]);
+int choseRandomNumber(int min, int max);
+void expandIsland(cell board[9][9], coordinates island[9], enum colour c) ;
+
+
+
+
+void printKillerBoard(cell killerBoard[9][9]) {
+    // ANSI color codes for different colors
+    const char *colorCodes[] = {
+        "\033[0m",   // NO_COLOR (Default/White)
+        "\033[34m",  // BLUE
+        "\033[31m",  // RED
+        "\033[33m",  // YELLOW
+        "\033[35m",  // PINK (Magenta)
+        "\033[36m",  // PURPLE (Cyan)
+        "\033[32m"   // GREEN
+    };
+
+    for (int i = 0; i < 9; i++) {
+        for (int j = 0; j < 9; j++) {
+            // Print vertical grid separators
+            if (j == 3 || j == 6)
+                printf(" | ");
+
+            // Get the color associated with the current cell
+            const char *color = colorCodes[killerBoard[i][j].color];
+
+            // Print the cell value with the corresponding color
+            printf("%s%2d\033[0m ", color, killerBoard[i][j].val);  // Reset color with \033[0m after each value
+        }
+        printf("\n");
+        
+        // Print horizontal grid separators
+        if (i == 2 || i == 5)
+            printf("---------------------\n");
+    }
+}
 
 int main(void) {
-    srand(time(NULL));  // Seed random number generator
 
     int board[9][9] = {0};  // Initialize the board with zeros
 
@@ -21,18 +77,98 @@ int main(void) {
     // Use backtracking to fill the entire board
     solveSudoku(board);
 
+    //Trasnform sudoku to killer sudoku 
+    cell killerBoard[9][9];
+    toKiller(board, killerBoard);
+    printKillerBoard(killerBoard);
     // Remove elements to create a puzzle with 'holes' number of empty cells
     removeElements(board, 40);  // E.g., remove 40 elements
 
     // Print the Sudoku puzzle
-    printBoard(board);
+    //printBoard(board);
 
     return 0;
 }
 
+void toKiller(int board[9][9], cell killerBoard[9][9]) {
+    // Initialize killerBoard with values from the Sudoku board and set all colors to NO_COLOR
+    for (int i = 0; i < 9; i++) {
+        for (int j = 0; j < 9; j++) {
+            killerBoard[i][j].val = board[i][j];
+            killerBoard[i][j].color = NO_COLOR;
+        }
+    }
+
+    // Choose the number of conglomerations (groups of connected cells)
+    int conglomerations = choseRandomNumber(5, 10);
+
+    for (enum colour c = BLUE; c <= GREEN; c++) {
+        // For each color, choose a random starting point for the island
+        int i, j;
+        do {
+            i = choseRandomNumber(0, 8);
+            j = choseRandomNumber(0, 8);
+        } while (killerBoard[i][j].color != NO_COLOR); // Ensure the selected cell is not part of an island
+
+
+        // Initialize the island with the first cell
+        coordinates island[9];  // Maximum of 9 cells per island
+        island[0].x = i;
+        island[0].y = j;
+        killerBoard[i][j].color = c;  // Assign color to the first cell
+
+        // Expand the island from the initial cell
+        expandIsland(killerBoard, island, c);
+    }
+}
+
+void expandIsland(cell board[9][9], coordinates island[9], enum colour c) {
+    int islandSize = 1;  // Initial size is 1 (the starting cell)
+
+    for (int i = 0; i < 6; i++) {  // Try expanding up to 6 more cells
+        int direction = choseRandomNumber(0, 3);
+        int x = island[islandSize - 1].x;  // Start from the last cell in the island
+        int y = island[islandSize - 1].y;
+
+        switch (direction) {
+            case 0: // UP 
+                if (x > 0) x--;
+                break;
+            case 1: // RIGHT
+                if (y < 8) y++;
+                break;
+            case 2: // DOWN
+                if (x < 8) x++;
+                break;
+            case 3: // LEFT
+                if (y > 0) y--;
+                break;
+        }
+
+        // Check if the adjacent cell is valid and not part of an island
+        if (board[x][y].color == NO_COLOR) {
+            // Add the new cell to the island and color it
+            island[islandSize].x = x;
+            island[islandSize].y = y;
+            board[x][y].color = c;
+            islandSize++;  // Increment the size of the island
+        }
+        else break;
+    }
+}
+
+
+int choseRandomNumber(int min, int max) {
+  
+    srand(time(NULL));  // Seed random number generator
+    //random number in the range [min, max]
+    int rd_num = rand() % (max - min + 1) + min;
+    return rd_num;
+}
+
 void fillDiagonals(int board[9][9]) {
     int sample[] = {1, 2, 3, 4, 5, 6, 7, 8, 9};
-
+    srand(time(NULL));  // Seed random number generator
     for (int i = 0; i <= 6; i += 3) {
         shuffle(sample, 9);  // Shuffle the array to randomize values
         int pointer = 0;
