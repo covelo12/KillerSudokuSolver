@@ -2,7 +2,13 @@
 #include <stdlib.h>
 #include <time.h>
 #include <stdbool.h>
+#include <math.h>
 
+#define N 9           
+#define SUBGRID_SIZE (int)(sqrt(N))         
+#define MAX_CAGES (N * N)
+#define ELEMENTS_REMOVED 40
+#define CAGE_SIZE 10
 
 // Cell struct for individual Sudoku cells
 typedef struct {
@@ -17,11 +23,11 @@ typedef struct {
 } Cage;
 
 typedef struct {
-    Cell board[9][9];       // The actual Sudoku board
-    bool row[9][10];        // Marks if a number is present in each row
-    bool col[9][10];        // Marks if a number is present in each column
-    bool grid[9][10];       // Marks if a number is present in each 3x3 subgrid
-    Cage cages[81];         // Array of cages, assuming a maximum of 81 cages
+    Cell board[N][N];       // The actual Sudoku board
+    bool row[N][N + 1];        // Marks if a number is present in each row
+    bool col[N][N + 1];        // Marks if a number is present in each column
+    bool grid[N][N + 1];       // Marks if a number is present in each 3x3 subgrid
+    Cage cages[MAX_CAGES];         // Array of cages, assuming a maximum of 81 cages
 } SudokuBoard;
 
 
@@ -56,12 +62,13 @@ int main(void) {
     init_sudoku_board(&sb); 
     fill_diagonals(&sb);
     solve_sudoku(&sb);
+    print_board(&sb);
 
     create_cages(&sb);
     printf("\nCAGES FOR YOUR GAME!\n");
     print_cages(&sb);
 
-    remove_elements(&sb, 40);
+    remove_elements(&sb, ELEMENTS_REMOVED);
     printf("\nKILLER SUDOKU SOLVE IT!\n");
     print_board(&sb);
     
@@ -75,15 +82,15 @@ int main(void) {
 // Initialize the Structurs
 void init_sudoku_board(SudokuBoard* sb) {
     
-    for (int i = 0; i < 9; i++) {
-        for (int j = 0; j < 9; j++) {
+    for (int i = 0; i < N; i++) {
+        for (int j = 0; j < N; j++) {
             sb->board[i][j].value = 0;
             sb->board[i][j].cage_id = 0;
         }
     }
 
-    for (int i = 0; i < 9; i++) {
-        for (int j = 0; j < 10; j++) {
+    for (int i = 0; i < N; i++) {
+        for (int j = 0; j < N + 1; j++) {
             sb->row[i][j] = false;
             sb->col[i][j] = false;
             sb->grid[i][j] = false;
@@ -97,7 +104,7 @@ void place_number(SudokuBoard* sb, int row, int col, int num, int cage_id) {
         sb->cages[sb->board[row][col].cage_id-1].current_sum += num;
     sb->row[row][num] = true;
     sb->col[col][num] = true;
-    sb->grid[(row / 3) * 3 + col / 3][num] = true;
+    sb->grid[(row / SUBGRID_SIZE) * SUBGRID_SIZE + col / SUBGRID_SIZE][num] = true;
 }
 
 void remove_number(SudokuBoard* sb, int row, int col, int num, int cage_id) {
@@ -106,19 +113,23 @@ void remove_number(SudokuBoard* sb, int row, int col, int num, int cage_id) {
         sb->cages[sb->board[row][col].cage_id-1].current_sum -= num;
     sb->row[row][num] = false;
     sb->col[col][num] = false;
-    sb->grid[(row / 3) * 3 + col / 3][num] = false;
+    sb->grid[(row / SUBGRID_SIZE) * SUBGRID_SIZE + col / SUBGRID_SIZE][num] = false;
 }
 
 
 void fill_diagonals(SudokuBoard* sb) {
-    int sample[] = {1, 2, 3, 4, 5, 6, 7, 8, 9};
+    int sample[N];
+    
+    for (int i = 0; i < N; i++) {
+        sample[i] = i + 1;  // Fill with numbers from 1 to N
+    }
 
-    for (int i = 0; i <= 6; i += 3) {
-        shuffle(sample, 9);  // Shuffle the array to randomize values
+    for (int i = 0; i <= (N-SUBGRID_SIZE); i += SUBGRID_SIZE) {
+        shuffle(sample, N);  // Shuffle the array to randomize values
 
         int pointer = 0;
-        for (int row = 0; row < 3; row++) {
-            for (int col = 0; col < 3; col++) {
+        for (int row = 0; row < SUBGRID_SIZE; row++) {
+            for (int col = 0; col < SUBGRID_SIZE; col++) {
                 place_number(sb, i + row, i + col, sample[pointer++], 0);
             }
         }
@@ -138,7 +149,7 @@ void shuffle(int* array, size_t n) {
 
 bool is_safe(SudokuBoard* sb, int row, int col, int num) {
     // Check row, column, and subgrid
-    if (sb->row[row][num] || sb->col[col][num] || sb->grid[(row / 3) * 3 + col / 3][num]) {
+    if (sb->row[row][num] || sb->col[col][num] || sb->grid[(row / SUBGRID_SIZE) * SUBGRID_SIZE + col / SUBGRID_SIZE][num]) {
         return false; // Number is already present
     }
 
@@ -163,8 +174,8 @@ bool solve_sudoku(SudokuBoard* sb) {
     if (!find_empty_cell(sb, &row, &col))
         return true;
 
-    // Try numbers 1-9 in the empty cell
-    for (int num = 1; num <= 9; num++) {
+    // Try numbers 1-N in the empty cell
+    for (int num = 1; num <= N; num++) {
         
         if (is_safe(sb, row, col, num)) {
         
@@ -182,8 +193,8 @@ bool solve_sudoku(SudokuBoard* sb) {
 }
 
 bool find_empty_cell(SudokuBoard* sb, int *row, int *col) {
-    for (*row = 0; *row < 9; (*row)++) {
-        for (*col = 0; *col < 9; (*col)++) {
+    for (*row = 0; *row < N; (*row)++) {
+        for (*col = 0; *col < N; (*col)++) {
             if (sb->board[*row][*col].value == 0) {
                 return true;
             }
@@ -195,11 +206,11 @@ bool find_empty_cell(SudokuBoard* sb, int *row, int *col) {
 void create_cages(SudokuBoard* sb) {
     int current_cage = 1;
 
-    for (int i = 0; i < 9; i++) {
-        for (int j = 0; j < 9; j++) {
+    for (int i = 0; i < N; i++) {
+        for (int j = 0; j < N; j++) {
             
             if (sb->board[i][j].cage_id == 0) {
-                size_t cage_size = rand() % 4 + 1; // cage between 1 and 4
+                size_t cage_size = rand() % CAGE_SIZE + 1; // cage between 1 and 4
                 int row = i;
                 int col = j;
                 sb->cages[current_cage - 1].total_sum = 0; 
@@ -211,8 +222,8 @@ void create_cages(SudokuBoard* sb) {
 
                     int direction = rand() % 2; // direction 0 right, 1 down
                     // Validate if can go down or right
-                    bool can_go_down = (row + 1 < 9) && (sb->board[row + 1][col].cage_id == 0);
-                    bool can_go_right = (col + 1 < 9) && (sb->board[row][col + 1].cage_id == 0);
+                    bool can_go_down = (row + 1 < N) && (sb->board[row + 1][col].cage_id == 0);
+                    bool can_go_right = (col + 1 < N) && (sb->board[row][col + 1].cage_id == 0);
                     
                     if (can_go_down && can_go_right) {
                         if (direction == 0)
@@ -233,100 +244,43 @@ void create_cages(SudokuBoard* sb) {
     }
 }
 
-/* With all 4 directions takes too much time since its always random rethink process
-void create_cages(SudokuBoard* sb) {
-    int current_cage = 1;
-
-    for (int i = 0; i < 9; i++) {
-        for (int j = 0; j < 9; j++) {
-            // Check if the cell already belongs to a cage
-            if (sb->board[i][j].cage_id == 0) {
-                size_t cage_size = rand() % 4 + 1; // Cage size between 1 and 4
-                int row = i;
-                int col = j;
-                sb->cages[current_cage - 1].total_sum = 0; // Initialize the current sum for the new cage
-
-                // Assign the current cage ID to the cell and update the current sum
-                sb->board[row][col].cage_id = current_cage;
-                sb->cages[current_cage - 1].total_sum += sb->board[row][col].value;
-
-                int steps = 1;
-                while (steps < cage_size) {
-
-                    // Choose a random direction
-                    int direction = rand() % 4; // 0: right, 1: down, 2: left, 3: up
-                    int new_row = row;
-                    int new_col = col;
-
-                    // Calculate the new direction
-                    switch (direction) {
-                        case 0: 
-                            new_col++;
-                            break;
-                        case 1: 
-                            new_row++;
-                            break;
-                        case 2: 
-                            new_col--;
-                            break;
-                        case 3:
-                            new_row--;
-                            break;
-                    }
-
-                    // Validate the new position
-                    if (new_row >= 0 && new_row < 9 && new_col >= 0 && new_col < 9 && sb->board[new_row][new_col].cage_id == 0) {
-                        // Update to the new cell
-                        row = new_row;
-                        col = new_col;
-                        sb->board[row][col].cage_id = current_cage; // Assign the current cage ID
-                        sb->cages[current_cage - 1].total_sum += sb->board[row][col].value; // Update the sum
-                        steps++; // Increment steps
-                    }
-                }
-                current_cage++; // Move to the next cage ID
-            }
-        }
-    }
-}
-*/
 void print_board(SudokuBoard* sb) {
-    for (int i = 0; i < 9; i++) {
-        if (i % 3 == 0 && i != 0) {
-            printf("-------------------------------\n");
+    for (int i = 0; i < N; i++) {
+        if (i % SUBGRID_SIZE == 0 && i != 0) {
+            printf("-------------------------------\n"); // Print separator between grids
         }
-        for (int j = 0; j < 9; j++) {
-            if (j % 3 == 0 && j != 0) {
-                printf("| "); 
+        for (int j = 0; j < N; j++) {
+            if (j % SUBGRID_SIZE == 0 && j != 0) {
+                printf("| "); // Print separator between subgrids
             }
-            int color = sb->board[i][j].cage_id % 7;
+            int color = sb->board[i][j].cage_id % 7; // Get color for cage
             if (sb->board[i][j].value == 0) {
-                printf(" . "); 
+                printf(" . "); // Print empty cell as a dot
             } else {
-                printf("%s%2d%s ", colors[color], sb->board[i][j].value, "\033[0m"); 
+                printf("%s%2d%s ", colors[color], sb->board[i][j].value, "\033[0m"); // Print colored number
             }
         }
-        printf("\n");
+        printf("\n"); // New line after each row
     }
 }
 
 void print_cages(SudokuBoard* sb) {
-    for (int i = 0; i < 9; i++) {
-        if (i % 3 == 0 && i != 0) {
-            printf("-------------------------------\n");
+    for (int i = 0; i < N; i++) {
+        if (i % SUBGRID_SIZE == 0 && i != 0) {
+            printf("-------------------------------\n"); // Print separator between grids
         }
-        for (int j = 0; j < 9; j++) {
-            if (j % 3 == 0 && j != 0) {
-                printf("| "); 
+        for (int j = 0; j < N; j++) {
+            if (j % SUBGRID_SIZE == 0 && j != 0) {
+                printf("| "); // Print separator between subgrids
             }
             int cage_num = sb->board[i][j].cage_id;
             if (cage_num > 0) {
-                printf("%s%2d%s ", colors[cage_num % 7], sb->cages[cage_num - 1].total_sum, "\033[0m");
+                printf("%s%2d%s ", colors[cage_num % 7], sb->cages[cage_num - 1].total_sum, "\033[0m"); // Print colored cage sum
             } else {
-                printf(" .  ");
+                printf(" .  "); // Print dot for cells without a cage
             }
         }
-        printf("\n"); 
+        printf("\n"); // New line after each row
     }
 }
 
@@ -335,13 +289,13 @@ void print_cages(SudokuBoard* sb) {
 void remove_elements(SudokuBoard* sb, int holes) {
     // Randomly remove 'holes' number of elements from the board
     for (int i = 0; i < holes; i++) {
-        int row = rand() % 9;
-        int col = rand() % 9;
+        int row = rand() % N;
+        int col = rand() % N;
 
         // Ensure we're removing an existing number, not an already empty cell
         while (sb->board[row][col].value == 0) {
-            row = rand() % 9;
-            col = rand() % 9;
+            row = rand() % N;
+            col = rand() % N;
         }
         
         remove_number(sb, row, col, sb->board[row][col].value, 0);
@@ -350,15 +304,15 @@ void remove_elements(SudokuBoard* sb, int holes) {
 
 void update_cage_sums(SudokuBoard* sb) {
     // Initialize curr sums
-    for (int k = 0; k < 81; k++) {
+    for (int k = 0; k < MAX_CAGES; k++) {
         sb->cages[k].current_sum = 0;
         if (sb->cages[k].total_sum == 0)
             break;
     }
 
     // Calculate the new sums based on the current board state
-    for (int i = 0; i < 9; i++) {
-        for (int j = 0; j < 9; j++) {
+    for (int i = 0; i < N; i++) {
+        for (int j = 0; j < N; j++) {
             int cage_num = sb->board[i][j].cage_id;  
             if (cage_num > 0 && sb->board[i][j].value > 0) { 
                 sb->cages[cage_num - 1].current_sum += sb->board[i][j].value;
