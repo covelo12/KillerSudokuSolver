@@ -48,7 +48,7 @@ bool find_empty_cell(SudokuBoard* sb, int *row, int *col);
 void place_number(SudokuBoard* sb, int row, int col, int num, int cage_id);
 void remove_number(SudokuBoard* sb, int row, int col, int num, int cage_id);
 bool solveKiller(SudokuBoard* sb);
-void applyRuleOfNecessity(SudokuBoard* sb);
+bool applyRuleOfNecessity(SudokuBoard* sb);
 bool insertMissingNecessityNumber(SudokuBoard* sb, int updateIndex, char* indexType);
 int sum_up_to(int n);
 void run_test_case() ;
@@ -117,18 +117,42 @@ int main(void) {
 ////////////////// 
 ////// Solver ///
 ////////////////// 
+
+//TODO: apply rule of necessity to the cages
 bool solveKiller(SudokuBoard* sb){
    if(strcmp(STRATEGY,"BACKTRACK") == 0){
-        solve_sudoku(sb);
+        return solve_sudoku(sb);
    }
    if( strcmp(STRATEGY,"TATICS") == 1){
         return false;
    }
-   int row,col;
-    if( !find_empty_cell(sb, &row, &col)) return true;
+
+    int row, col;
+
+    // If there is no empty space, we are done
+    if (!find_empty_cell(sb, &row, &col))
+        return true;
+    if (!applyRuleOfNecessity(sb)) return false;
+    // Try numbers 1-N in the empty cell
+    for (int num = 1; num <= N; num++) {
+        
+        if (is_safe(sb, row, col, num)) {
+        
+            place_number(sb, row, col, num, sb->board[row][col].cage_id);
+            
+            // Recursively try to fill the rest of the board
+            if (solveKiller(sb))
+                return true;
+
+            // If it leads to no solution, reset the cell
+            remove_number(sb, row, col, num, sb->board[row][col].cage_id);
+        }
+    }
+    return false;  // No valid number found, trigger backtrack
+    
 }
 
-void applyRuleOfNecessity(SudokuBoard* sb){
+bool applyRuleOfNecessity(SudokuBoard* sb){
     bool changedGrid=false;
     for(int arrayIterator=0; arrayIterator<N; arrayIterator++){
         int numberMissingValuesRow=0;
@@ -150,25 +174,29 @@ void applyRuleOfNecessity(SudokuBoard* sb){
             if(valueIsMissing) numberMissingValuesGrid++;
 
         }    
+        bool res=true;
         if (numberMissingValuesRow == 1) {
-            insertMissingNecessityNumber(sb, arrayIterator,"column" );
+            res=insertMissingNecessityNumber(sb, arrayIterator,"column" );
             changedGrid=true;
         }
-        if (numberMissingValuesColumn == 1) {
-            insertMissingNecessityNumber(sb, arrayIterator,"row" );
+        else if (numberMissingValuesColumn == 1) {
+            res=insertMissingNecessityNumber(sb, arrayIterator,"row" );
             changedGrid=true;
         }
-        if (numberMissingValuesGrid == 1) {
-            insertMissingNecessityNumber(sb, arrayIterator,"grid" );
+        else if (numberMissingValuesGrid == 1) {
+            res=insertMissingNecessityNumber(sb, arrayIterator,"grid" );
             changedGrid=true;
         }
+        if(!res) return false;
     }
     if(changedGrid) applyRuleOfNecessity(sb);
+    return true;
 }
 
 //////////////////////
 // GRID OPERATIONS //
 //////////////////////
+
 bool insertMissingNecessityNumber(SudokuBoard* sb, int updateIndex, char* indexType) {
     int missingCellIndex = -1;
     int cellValueSum = 0;
@@ -580,6 +608,9 @@ void runNecessityTest(){
         remove_number(&testBoard, i,i, sb.board[i][i].value,0);
     }
     applyRuleOfNecessity(&testBoard);
+
+    print_board(&sb);
+    print_board(&testBoard);
 
     if(compareBoards(&sb, &testBoard)){
         printf("\033[0;32mTest 1 passed!\033[0m\n");
