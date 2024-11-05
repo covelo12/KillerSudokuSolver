@@ -5,10 +5,10 @@
 #include <math.h>
 #include <string.h>
 
-#define N 49      
+#define N 9
 #define SUBGRID_SIZE (int)(sqrt(N))         
 #define MAX_CAGES (N * N)
-#define ELEMENTS_REMOVED 40
+#define ELEMENTS_REMOVED 10
 #define CAGE_SIZE 10
 #define STRATEGY "BACKTRACK"  // BACKTRACK= Solving with bruteforce TACTICTS=Solves with tatics for killer
 // Cell struct for individual Sudoku cells
@@ -49,6 +49,7 @@ void place_number(SudokuBoard* sb, int row, int col, int num, int cage_id);
 void remove_number(SudokuBoard* sb, int row, int col, int num, int cage_id);
 bool solveKiller(SudokuBoard* sb);
 bool applyRuleOfNecessity(SudokuBoard* sb);
+bool applyRuleOfNecessityCages(SudokuBoard* sb);
 bool insertMissingNecessityNumber(SudokuBoard* sb, int updateIndex, char* indexType);
 int sum_up_to(int n);
 void run_test_case() ;
@@ -84,8 +85,8 @@ int main(void) {
     SudokuBoard sb;
     init_sudoku_board(&sb);
     
-    fill_diagonals(&sb);
-    solve_sudoku(&sb);
+    //fill_diagonals(&sb);
+    //solve_sudoku(&sb);
     print_board(&sb);
     
     create_cages(&sb);
@@ -97,6 +98,14 @@ int main(void) {
     print_board(&sb);
     
     update_cage_sums(&sb);
+
+    printf("\nKILLER SUDOKU RuleOfNecessity!\n");
+    applyRuleOfNecessity(&sb);
+    print_board(&sb);
+    printf("\nKILLER SUDOKU RuleOfNecessity Cages!\n");
+    
+    applyRuleOfNecessityCages(&sb);
+    print_board(&sb);
     
     // Cronometrando o tempo de solução
     clock_t timingStart = clock();
@@ -172,8 +181,10 @@ bool applyRuleOfNecessity(SudokuBoard* sb){
             //grids
             valueIsMissing = !sb->grid[arrayIterator][valueIterator];
             if(valueIsMissing) numberMissingValuesGrid++;
+            
 
-        }    
+        }
+     
         bool res=true;
         if (numberMissingValuesColumn == 1) {
             res=insertMissingNecessityNumber(sb, arrayIterator,"column" );
@@ -187,9 +198,68 @@ bool applyRuleOfNecessity(SudokuBoard* sb){
             res=insertMissingNecessityNumber(sb, arrayIterator,"grid" );
             changedGrid=true;
         }
+
+        
         if(!res) return false;
     }
     if(changedGrid) applyRuleOfNecessity(sb);
+    return true;
+}
+
+bool applyRuleOfNecessityCages(SudokuBoard* sb){
+    bool changedGrid=false;
+    bool valueIsMissing;
+    int noValueOnCage[MAX_CAGES] = {0}; // Counts how many values on the cage are empty
+    int cageid[MAX_CAGES] = {0};
+    int cagesums[MAX_CAGES] = {0};
+    for(int row=0; row<N; row++){
+        for(int col =0 ; col<N; col++){
+            //cage
+            
+            int value = sb->board[row][col].value;
+            int cageID = sb->board[row][col].cage_id;
+
+            if(value == 0){
+                noValueOnCage[cageID]++;
+            }
+
+            
+
+        }    
+    }
+    int l = 0;
+    for (int i = 0; i < MAX_CAGES; i++)
+    {
+        
+        
+        if (noValueOnCage[i] == 1){
+            cageid[l] = i;
+            cagesums[l] = sb->cages[i-1].total_sum - sb->cages[i-1].current_sum;
+            l++;
+        }
+        
+    }
+    
+    l = 0;
+    for(int row=0; row<N; row++){
+        for(int col =0 ; col<N; col++){
+            
+            int value = sb->board[row][col].value;
+            int cageID = sb->board[row][col].cage_id;
+
+            if (cageid[l] == cageID && value == 0)
+            {
+                //printf("noValueOnCage[%d] = %d   %d   %d\n", cageID, value, row, col);
+                place_number(sb, row, col, cagesums[l], cageID);
+                l++;
+                changedGrid = true;
+            }
+
+        }    
+    }
+    
+
+    if(changedGrid) applyRuleOfNecessityCages(sb);
     return true;
 }
 
@@ -201,14 +271,13 @@ bool insertMissingNecessityNumber(SudokuBoard* sb, int updateIndex, char* indexT
     int missingCellIndex = -1;
     int cellValueSum = 0;
     int targetSum = sum_up_to(N); 
-
+    
     // Handle column logic
     if (strcmp(indexType, "column") == 0) {
         for (int rowIterator = 0; rowIterator < N; rowIterator++) {
             int cellValue = sb->board[rowIterator][updateIndex].value;
 
             cellValueSum += cellValue;
-
             if (cellValue == 0) {
                 if (missingCellIndex == -1) {
                     missingCellIndex = rowIterator;
@@ -219,7 +288,7 @@ bool insertMissingNecessityNumber(SudokuBoard* sb, int updateIndex, char* indexT
         }
 
         int missingCellValue = targetSum - cellValueSum;
-
+        
         if (missingCellIndex != -1 && is_safe(sb, missingCellIndex, updateIndex, missingCellValue)) {
             place_number(sb, missingCellIndex, updateIndex, missingCellValue, sb->board[missingCellIndex][updateIndex].cage_id);
             return true;  // Success
@@ -243,7 +312,7 @@ bool insertMissingNecessityNumber(SudokuBoard* sb, int updateIndex, char* indexT
         }
 
         int missingCellValue = targetSum - cellValueSum;
-
+        
         if (missingCellIndex != -1 && is_safe(sb, updateIndex, missingCellIndex, missingCellValue)) {
             place_number(sb, updateIndex, missingCellIndex, missingCellValue, sb->board[updateIndex][missingCellIndex].cage_id);
             return true;  // Success
@@ -275,7 +344,7 @@ bool insertMissingNecessityNumber(SudokuBoard* sb, int updateIndex, char* indexT
         }
 
         int missingCellValue = targetSum - cellValueSum;
-
+        
         if (missingCellIndex != -1) {
             int missingRow = missingCellIndex / N;
             int missingCol = missingCellIndex % N;
@@ -467,11 +536,23 @@ void print_board(SudokuBoard* sb) {
 // SUDOKU GENERATION //////
 ///////////////////////////
 void init_sudoku_board(SudokuBoard* sb) {
-    
+    // Copy the fixed board into the SudokuBoard structure
+    int fixed_board[N][N] = {
+        {5, 3, 4, 6, 7, 8, 9, 1, 2},
+        {6, 7, 2, 1, 9, 5, 3, 4, 8},
+        {1, 9, 8, 3, 4, 2, 5, 6, 7},
+        {8, 5, 9, 7, 6, 1, 4, 2, 3},
+        {4, 2, 6, 8, 5, 3, 7, 9, 1},
+        {7, 1, 3, 9, 2, 4, 8, 5, 6},
+        {9, 6, 1, 5, 3, 7, 2, 8, 4},
+        {2, 8, 7, 4, 1, 9, 6, 3, 5},
+        {3, 4, 5, 2, 8, 6, 1, 7, 9}
+    };
+
     for (int i = 0; i < N; i++) {
         for (int j = 0; j < N; j++) {
-            sb->board[i][j].value = 0;
-            sb->board[i][j].cage_id = 0;
+            sb->board[i][j].value = fixed_board[i][j]; // Copy fixed values
+            sb->board[i][j].cage_id = 0; // Set cage_id to 0 initially
         }
     }
 
@@ -482,7 +563,19 @@ void init_sudoku_board(SudokuBoard* sb) {
             sb->grid[i][j] = false;
         }
     }
+
+    // Update the row and column markers
+    for (int i = 0; i < N; i++) {
+        for (int j = 0; j < N; j++) {
+            if (sb->board[i][j].value != 0) {
+                sb->row[i][sb->board[i][j].value] = true;
+                sb->col[j][sb->board[i][j].value] = true;
+                sb->grid[(i / SUBGRID_SIZE) * SUBGRID_SIZE + (j / SUBGRID_SIZE)][sb->board[i][j].value] = true;
+            }
+        }
+    }
 }
+
 
 void create_cages(SudokuBoard* sb) {
     int current_cage = 1;
@@ -601,13 +694,19 @@ void runNecessityTest(){
     SudokuBoard sb ;
     init_sudoku_board(&sb);
 
-    fill_diagonals(&sb);
-    solve_sudoku(&sb);
+    //fill_diagonals(&sb);
+    //solve_sudoku(&sb);
     SudokuBoard testBoard= sb;
+
+    create_cages(&testBoard);
     for(int i=0; i<N; i++){
         remove_number(&testBoard, i,i, sb.board[i][i].value,0);
     }
-    applyRuleOfNecessity(&testBoard);
+    update_cage_sums(&testBoard);
+    
+    print_board(&testBoard);
+    //applyRuleOfNecessity(&sb);
+    applyRuleOfNecessityCages(&testBoard);
 
     print_board(&sb);
     print_board(&testBoard);
