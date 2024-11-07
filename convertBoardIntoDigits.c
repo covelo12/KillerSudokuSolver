@@ -1,56 +1,20 @@
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
 
-#define MAX_SIZE 4096 // Increase to accommodate 64x64
+#define N 64  // Size of the grid
 
-// Function to map characters to unique numbers
 int mapCharToDigit(char c, int *used_chars, int *next_char_index) {
     if (isdigit(c)) {
-        return c - '0'; // Convert char digit to int
-    } else {
-        // If the character has already been assigned a number
-        if (used_chars[(unsigned char)c] != 0) {
-            return used_chars[(unsigned char)c];
-        } else {
-            // Assign the next unique number to this character
-            used_chars[(unsigned char)c] = *next_char_index;
-            (*next_char_index)++;
-            return used_chars[(unsigned char)c];
-        }
+        return c - '0';  // Direct map for digits
     }
+    if (used_chars[(unsigned char)c] != 0) {  // If character is already mapped
+        return used_chars[(unsigned char)c];
+    }
+    used_chars[(unsigned char)c] = (*next_char_index)++;  // Assign new index
+    return used_chars[(unsigned char)c];
 }
 
-// Function to convert the given input string
-void convertStringToArray(const char *input, int *output, int *size) {
-    *size = 0; // Initialize size of output array
-    int used_chars[256] = {0}; // To track which characters have been used
-    int next_char_index = 10; // Start mapping from 10
-
-    // Iterate through each character in the input string
-    for (int i = 0; i < strlen(input); i++) {
-        char c = input[i];
-
-        // Skip spaces
-        if (c == ' ') {
-            continue;
-        }
-
-        // Map character to digit
-        int num = mapCharToDigit(c, used_chars, &next_char_index);
-        
-        // Only add unused numbers to output
-        if (*size == 0 || output[*size - 1] != num) { // Avoid duplicates in output
-            if (*size < MAX_SIZE) { // Prevent overflow
-                output[*size] = num;
-                (*size)++;
-            }
-        }
-    }
-}
-
-// Main function
 int main() {
     const char *input = "F C 7 W a A r k z $ y G Q v 3 i x 6 X M D e K w u 4 Y 1 s T # m P B E R ? p j c N t V J q Z 8 d g O U S b f 2 h H + 5 o n I 9 L"
                         "V f d m ? M D i w u x T g 4 L b q j v I U 2 O 8 E W k B c h $ Z F N r H o G K Q z X R y s e C P + 9 p 3 # Y n 5 S t 6 7 a 1 J A"
@@ -116,35 +80,45 @@ int main() {
                         "1 J q g B e w P j O U X x k f d A S T a N E v ? r o C M F $ u c b y H Q D L 4 + i # t m 8 5 V 6 Z G 7 2 p 9 K Y s z W h 3 R I n"
                         "z 8 5 $ i o h m g C n + 6 M r 4 D k 1 V y U R I ? Q E A p B s W X c x P w 9 T Y O e u v L 7 G H d S b j f 3 F N J a q # K Z 2 t"
                         "c v p K D t E Z P A 7 R a q Q 8 r w u L 4 n i e I z f h x + 1 V C 2 W o S d O $ y g Y 3 J k b X 5 B T H ? s M # F 6 G 9 U m j N";
-    // Prepare output array
-    int output[MAX_SIZE];
-    int size;
+    int used_chars[256] = {0};  // Map of characters to unique indices
+    int next_char_index = 10;  // Starting from 10 for non-numeric characters
 
-    // Convert the input string to an array of unique numbers
-    convertStringToArray(input, output, &size);
-
-    // Define the dimension of the board
-    const int N = 64;
-
-    // Print the output in the desired format
+    // Start printing the array as a 64x64 grid
     printf("int fixed_board[%d][%d] = {\n", N, N);
-    for (int i = 0; i < N; i++) {
-        printf("    {");
-        for (int j = 0; j < N; j++) {
-            // Ensure that your output can be directly assigned to this format
-            // Make sure to check bounds to avoid reading past the end of the array
-            if (i * N + j < size) {
-                printf("%d", output[i * N + j]);
-            } else {
-                printf("0"); // Fill with 0 if not enough numbers
-            }
-            if (j < N - 1) {
-                printf(", ");
-            }
+
+    int count = 0;  // Counter to track the number of characters per row
+    printf("\t{");  // Start the first row
+    for (size_t i = 0; i < strlen(input); ++i) {
+        char c = input[i];
+        
+        // Skip spaces
+        if (c == ' ') {
+            continue;
         }
-        printf("},\n");
+        
+        int mapped_digit = mapCharToDigit(c, used_chars, &next_char_index);
+        
+        // Print the mapped digit, with a comma if it's not the last in the row
+        printf("%d", mapped_digit);
+        
+        count++;
+        
+        if (count % N == 0) {  // End of a row
+            printf("}");
+            if (i != strlen(input) - 1) {
+                printf(",\n\t{");  // Start a new row if not the last row
+            }
+        } else {
+            printf(", ");
+        }
     }
-    printf("};\n");
+    
+    // Ensure the last row ends correctly
+    if (count % N != 0) {
+        printf("}\n");
+    }
+
+    printf("\n};\n");
 
     return 0;
 }
