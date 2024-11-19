@@ -294,14 +294,16 @@ bool applyRuleOfNecessityForCell(SudokuBoard* sb, int row, int col) {
     bool res = true;
 
     // Apply rule if exactly one missing value in any of the regions
+    int grid =(row / SUBGRID_SIZE) * SUBGRID_SIZE + (col / SUBGRID_SIZE);   
+
     if (numberMissingValuesColumn == 1) {
-        res = insertMissingNecessityNumber(sb, row, col, "column");
+        res = insertMissingNecessityNumber(sb, col, "column");
         changedGrid = true;
     } else if (numberMissingValuesRow == 1) {
-        res = insertMissingNecessityNumber(sb, row, col, "row");
+        res = insertMissingNecessityNumber(sb, row, "row");
         changedGrid = true;
     } else if (numberMissingValuesGrid == 1) {
-        res = insertMissingNecessityNumber(sb, row, col, "grid");
+        res = insertMissingNecessityNumber(sb, grid, "grid");
         changedGrid = true;
     }
 
@@ -313,6 +315,7 @@ bool applyRuleOfNecessityForCell(SudokuBoard* sb, int row, int col) {
     return true;
 
     //TODO: how to back track
+
 }
 //////////////////////
 // GRID OPERATIONS //
