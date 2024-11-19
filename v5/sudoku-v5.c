@@ -53,7 +53,7 @@ bool applyRuleOfNecessityCages(SudokuBoard* sb);
 bool insertMissingNecessityNumber(SudokuBoard* sb, int updateIndex, char* indexType);
 int sum_up_to(int n);
 void run_test_case() ;
-
+bool applyRuleOfNecessityForCell(SudokuBoard *sb, int row, int col);
 
 const char* colors[] = {
     "\033[0;31m", // Red
@@ -260,6 +260,60 @@ bool applyRuleOfNecessityCages(SudokuBoard* sb){
     return true;
 }
 
+bool applyRuleOfNecessityForCell(SudokuBoard* sb, int row, int col) {
+    bool changedGrid = false;
+    
+    // Adjust for the grid, row, and column of the altered cell
+    int numberMissingValuesRow = 0;
+    int numberMissingValuesColumn = 0;
+    int numberMissingValuesGrid = 0;
+    bool valueIsMissing;
+
+    // Check row
+    for (int valueIterator = 1; valueIterator <= N; valueIterator++) {
+        valueIsMissing = !sb->row[row][valueIterator];
+        if (valueIsMissing) numberMissingValuesRow++;
+    }
+
+    // Check column
+    for (int valueIterator = 1; valueIterator <= N; valueIterator++) {
+        valueIsMissing = !sb->col[col][valueIterator];
+        if (valueIsMissing) numberMissingValuesColumn++;
+    }
+
+    // Check grid (calculate grid index)
+    int gridRowStart = (row / 3) * 3;
+    int gridColStart = (col / 3) * 3;
+    for (int i = gridRowStart; i < gridRowStart + 3; i++) {
+        for (int j = gridColStart; j < gridColStart + 3; j++) {
+            valueIsMissing = !sb->grid[i * 3 + j];
+            if (valueIsMissing) numberMissingValuesGrid++;
+        }
+    }
+
+    bool res = true;
+
+    // Apply rule if exactly one missing value in any of the regions
+    if (numberMissingValuesColumn == 1) {
+        res = insertMissingNecessityNumber(sb, row, col, "column");
+        changedGrid = true;
+    } else if (numberMissingValuesRow == 1) {
+        res = insertMissingNecessityNumber(sb, row, col, "row");
+        changedGrid = true;
+    } else if (numberMissingValuesGrid == 1) {
+        res = insertMissingNecessityNumber(sb, row, col, "grid");
+        changedGrid = true;
+    }
+
+    if (!res) return false;
+
+    // Recursively apply rule if the grid has changed
+    if (changedGrid) applyRuleOfNecessityForCell(sb, row, col);
+
+    return true;
+
+    //TODO: how to back track
+}
 //////////////////////
 // GRID OPERATIONS //
 //////////////////////
