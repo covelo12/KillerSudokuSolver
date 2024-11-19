@@ -8,7 +8,7 @@
 #define N 64
 #define SUBGRID_SIZE (int)(sqrt(N))         
 #define MAX_CAGES (N * N)
-#define ELEMENTS_REMOVED 100
+#define ELEMENTS_REMOVED 1000
 #define CAGE_SIZE 40
 #define STRATEGY "BACKTRACK"  // BACKTRACK= Solving with bruteforce TACTICTS=Solves with tatics for killer
 // Cell struct for individual Sudoku cells
