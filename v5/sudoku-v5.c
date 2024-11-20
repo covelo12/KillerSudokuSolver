@@ -15,7 +15,6 @@
 typedef struct {
     int value;              // The number in the cell
     int cage_id;            // Cage ID
-    int row;
 } Cell;
 
 // Cage struct for each cage in the Killer Sudoku
@@ -32,6 +31,12 @@ typedef struct {
     Cage cages[MAX_CAGES];         // Array of cages, assuming a maximum of 81 cages
 } SudokuBoard;
 
+typedef struct{
+    int row;
+    int col;
+    int num;
+    int cageID;
+} placedNum;
 
 void runNecessityTest();
 void init_sudoku_board(SudokuBoard* sb);
@@ -47,7 +52,7 @@ void update_cage_sums(SudokuBoard* sb);
 bool find_empty_cell(SudokuBoard* sb, int *row, int *col);
 void place_number(SudokuBoard* sb, int row, int col, int num, int cage_id);
 void remove_number(SudokuBoard* sb, int row, int col, int num, int cage_id);
-bool solveKiller(SudokuBoard* sb);
+bool solveKiller(SudokuBoard* sb, placedNum* backtracker);
 bool applyRuleOfNecessity(SudokuBoard* sb);
 bool applyRuleOfNecessityCages(SudokuBoard* sb);
 bool insertMissingNecessityNumber(SudokuBoard* sb, int updateIndex, char* indexType);
@@ -109,7 +114,8 @@ int main(void) {
     
     // Cronometrando o tempo de solução
     clock_t timingStart = clock();
-    solveKiller(&sb);
+    placedNum backtracker[65];
+    solveKiller(&sb, backtracker);
     clock_t timingEnd = clock();
     
     double solving_time = (double)(timingEnd - timingStart) / CLOCKS_PER_SEC;
@@ -126,9 +132,8 @@ int main(void) {
 ////////////////// 
 ////// Solver ///
 ////////////////// 
-
-//TODO: apply rule of necessity to the cages
-bool solveKiller(SudokuBoard* sb){
+// 
+bool solveKiller(SudokuBoard* sb, placedNum* backtracker){
    if(strcmp(STRATEGY,"BACKTRACK") == 0){
         return solve_sudoku(sb);
    }
@@ -148,9 +153,10 @@ bool solveKiller(SudokuBoard* sb){
         if (is_safe(sb, row, col, num)) {
         
             place_number(sb, row, col, num, sb->board[row][col].cage_id);
-            
+            applyRuleOfNecessityForCell(sb,row,col);
+             
             // Recursively try to fill the rest of the board
-            if (solveKiller(sb))
+            if (solveKiller(sb, backtracker))
                 return true;
 
             // If it leads to no solution, reset the cell
@@ -282,9 +288,9 @@ bool applyRuleOfNecessityForCell(SudokuBoard* sb, int row, int col) {
     }
 
     // Check grid (calculate grid index)
-    int gridRowStart = (row / 3) * 3;
-    int gridColStart = (col / 3) * 3;
-    for (int i = gridRowStart; i < gridRowStart + 3; i++) {
+    int gridRowStart = (row / SUBGRID_SIZE) * SUBGRID_SIZE;
+    int gridColStart = (col / SUBGRID_SIZE) * SUBGRID_SIZE;
+    for (int i = gridRowStart; i < gridRowStart + SUBGRID_SIZE; i++) {
         for (int j = gridColStart; j < gridColStart + 3; j++) {
             valueIsMissing = !sb->grid[i * 3 + j];
             if (valueIsMissing) numberMissingValuesGrid++;
@@ -310,7 +316,7 @@ bool applyRuleOfNecessityForCell(SudokuBoard* sb, int row, int col) {
     if (!res) return false;
 
     // Recursively apply rule if the grid has changed
-    if (changedGrid) applyRuleOfNecessityForCell(sb, row, col);
+    //if (changedGrid) applyRuleOfNecessityForCell(sb, row, col);
 
     return true;
 
@@ -790,6 +796,15 @@ int sum_up_to(int n) {
     return (n * (n + 1)) / 2;
 }
 
+bool append(placedNum* arr, placedNum val){
+    static int lastPlaced=0;
+    arr[lastPlaced] = val;
+    lastPlaced++;
+    if(lastPlaced>64) {
+        return false;
+    }
+    return true;
+}
 ///////////////////////////
 //////// Tests ///////
 ///////////////////////////
@@ -802,22 +817,18 @@ void runNecessityTest(){
     
     SudokuBoard sb ;
     init_sudoku_board(&sb);
-
-    //fill_diagonals(&sb);
-    //solve_sudoku(&sb);
+    create_cages(&sb);
     SudokuBoard testBoard= sb;
-
-    create_cages(&testBoard);
-    for(int i=0; i<N; i++){
-        remove_number(&testBoard, i,i, sb.board[i][i].value,0);
-    }
-    update_cage_sums(&testBoard);
     
-    print_board(&testBoard);
-    //applyRuleOfNecessity(&sb);
-    applyRuleOfNecessityCages(&testBoard);
+    //Testes
+    remove_number(&testBoard, 0,0, sb.board[0][0].value, sb.board[0][0].cage_id );
 
-    print_board(&sb);
+
+    update_cage_sums(&testBoard);
+    update_cage_sums(&sb); 
+    print_board(&testBoard);
+    applyRuleOfNecessityForCell(&testBoard,0,1);
+    update_cage_sums(&testBoard);
     print_board(&testBoard);
 
     if(compareBoards(&sb, &testBoard)){
