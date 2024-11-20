@@ -4,13 +4,12 @@
 #include <stdbool.h>
 #include <math.h>
 #include <string.h>
-
 #define N 64
 #define SUBGRID_SIZE (int)(sqrt(N))         
 #define MAX_CAGES (N * N)
 #define ELEMENTS_REMOVED 1000
 #define CAGE_SIZE 40
-#define STRATEGY "BACKTRACK"  // BACKTRACK= Solving with bruteforce TACTICTS=Solves with tatics for killer
+#define STRATEGY "TACTICS"  // BACKTRACK= Solving with bruteforce TACTICTS=Solves with tatics for killer
 // Cell struct for individual Sudoku cells
 typedef struct {
     int value;              // The number in the cell
@@ -59,6 +58,8 @@ bool insertMissingNecessityNumber(SudokuBoard* sb, int updateIndex, char* indexT
 int sum_up_to(int n);
 void run_test_case() ;
 bool applyRuleOfNecessityForCell(SudokuBoard *sb, int row, int col);
+bool append(placedNum * arr, placedNum  val);
+void removeBacktrackers(SudokuBoard *sb, placedNum *backtracker);
 
 const char* colors[] = {
     "\033[0;31m", // Red
@@ -109,11 +110,12 @@ int main(void) {
     print_board(&sb);
     printf("\nKILLER SUDOKU RuleOfNecessity Cages!\n");
     
-    applyRuleOfNecessityCages(&sb);
+    //applyRuleOfNecessityCages(&sb);
     print_board(&sb);
     
     // Cronometrando o tempo de solução
     clock_t timingStart = clock();
+    placedNum aux; aux.col=-1;aux.row=-1;aux.num=-1;aux.cageID=-1;
     placedNum backtracker[65];
     solveKiller(&sb, backtracker);
     clock_t timingEnd = clock();
@@ -146,7 +148,6 @@ bool solveKiller(SudokuBoard* sb, placedNum* backtracker){
     // If there is no empty space, we are done
     if (!find_empty_cell(sb, &row, &col))
         return true;
-    if (!applyRuleOfNecessity(sb)) return false;
     // Try numbers 1-N in the empty cell
     for (int num = 1; num <= N; num++) {
         
@@ -154,13 +155,19 @@ bool solveKiller(SudokuBoard* sb, placedNum* backtracker){
         
             place_number(sb, row, col, num, sb->board[row][col].cage_id);
             applyRuleOfNecessityForCell(sb,row,col);
-             
+            placedNum val;
+            val.row=row; val.col = col; val.cageID=sb->board[row][col].cage_id; val.num=num;
+            append(backtracker, val);
+            
+            
+
             // Recursively try to fill the rest of the board
             if (solveKiller(sb, backtracker))
                 return true;
 
             // If it leads to no solution, reset the cell
             remove_number(sb, row, col, num, sb->board[row][col].cage_id);
+            removeBacktrackers(sb,backtracker);
         }
     }
     return false;  // No valid number found, trigger backtrack
@@ -319,13 +326,28 @@ bool applyRuleOfNecessityForCell(SudokuBoard* sb, int row, int col) {
     //if (changedGrid) applyRuleOfNecessityForCell(sb, row, col);
 
     return true;
-
-    //TODO: how to back track
-
 }
 //////////////////////
 // GRID OPERATIONS //
 //////////////////////
+void removeBacktrackers(SudokuBoard *sb, placedNum backtracker[]){
+    int i =0;
+    bool isEmpty = backtracker[i].row == -1 || backtracker[i].col == -1 || backtracker[i].num == -1 || backtracker[i].cageID == -1;
+    while (!isEmpty)
+    {
+        int row, col, num, cage_id;
+        row = backtracker[i].row;
+        col = backtracker[i].col;
+        num = backtracker[i].num;
+        cage_id = backtracker[i].cageID;
+
+        placedNum aux; aux.col=-1;aux.row=-1;aux.num=-1;aux.cageID=-1;
+        remove_number(sb,row, col,num,cage_id);
+        backtracker[i]=aux; 
+        i++;
+        isEmpty = backtracker[i].row == -1 || backtracker[i].col == -1 || backtracker[i].num == -1 || backtracker[i].cageID == -1;
+    }
+}
 
 bool insertMissingNecessityNumber(SudokuBoard* sb, int updateIndex, char* indexType) {
     int missingCellIndex = -1;
