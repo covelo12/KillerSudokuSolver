@@ -117,6 +117,9 @@ int main(void) {
     clock_t timingStart = clock();
     placedNum aux; aux.col=-1;aux.row=-1;aux.num=-1;aux.cageID=-1;
     placedNum backtracker[65];
+    for (int i =0; i<65; i++){
+        backtracker[i]=aux;
+    }
     solveKiller(&sb, backtracker);
     clock_t timingEnd = clock();
     
@@ -819,9 +822,19 @@ int sum_up_to(int n) {
 }
 
 bool append(placedNum* arr, placedNum val){
-    static int lastPlaced=0;
+    int lastPlaced;
+    if(arr[0].col==-1){
+        lastPlaced=0;
+    }
+    else{
+        for(int i =0; i<65; i++){
+            if( arr[i].col==-1){
+                lastPlaced=i;
+                break;
+            }
+        }
+    }
     arr[lastPlaced] = val;
-    lastPlaced++;
     if(lastPlaced>64) {
         return false;
     }
