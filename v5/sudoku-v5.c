@@ -7,9 +7,9 @@
 #define N 64
 #define SUBGRID_SIZE (int)(sqrt(N))         
 #define MAX_CAGES (N * N)
-#define ELEMENTS_REMOVED 1000
+#define ELEMENTS_REMOVED 300
 #define CAGE_SIZE 40
-#define STRATEGY "TACTICS"  // BACKTRACK= Solving with bruteforce TACTICTS=Solves with tatics for killer
+#define STRATEGY "TACTICS"  // BACKTRACK= Solving with bruteforce TACTICS=Solves with tatics for killer
 // Cell struct for individual Sudoku cells
 typedef struct {
     int value;              // The number in the cell
@@ -57,7 +57,7 @@ bool applyRuleOfNecessityCages(SudokuBoard* sb);
 bool insertMissingNecessityNumber(SudokuBoard* sb, int updateIndex, char* indexType);
 int sum_up_to(int n);
 void run_test_case() ;
-bool applyRuleOfNecessityForCell(SudokuBoard *sb, int row, int col);
+bool applyRuleOfNecessityForCell(SudokuBoard *sb, int* row, int* col);
 bool append(placedNum * arr, placedNum  val);
 void removeBacktrackers(SudokuBoard *sb, placedNum *backtracker);
 
@@ -93,25 +93,25 @@ int main(void) {
     
     //fill_diagonals(&sb);
     //solve_sudoku(&sb);
-    print_board(&sb);
+    //print_board(&sb);
     
     create_cages(&sb);
-    printf("\nCAGES FOR YOUR GAME!\n");
-    print_cages(&sb);
+    //printf("\nCAGES FOR YOUR GAME!\n");
+    //print_cages(&sb);
     
     remove_elements(&sb, ELEMENTS_REMOVED);
-    printf("\nKILLER SUDOKU SOLVE IT!\n");
-    print_board(&sb);
+    //printf("\nKILLER SUDOKU SOLVE IT!\n");
+    //print_board(&sb);
     
     update_cage_sums(&sb);
 
-    printf("\nKILLER SUDOKU RuleOfNecessity!\n");
+    //printf("\nKILLER SUDOKU RuleOfNecessity!\n");
     applyRuleOfNecessity(&sb);
-    print_board(&sb);
-    printf("\nKILLER SUDOKU RuleOfNecessity Cages!\n");
+    //print_board(&sb);
+    //printf("\nKILLER SUDOKU RuleOfNecessity Cages!\n");
     
     //applyRuleOfNecessityCages(&sb);
-    print_board(&sb);
+    //print_board(&sb);
     
     // Cronometrando o tempo de solução
     clock_t timingStart = clock();
@@ -138,6 +138,7 @@ int main(void) {
 ////// Solver ///
 ////////////////// 
 // 
+
 bool solveKiller(SudokuBoard* sb, placedNum* backtracker){
    if(strcmp(STRATEGY,"BACKTRACK") == 0){
         return solve_sudoku(sb);
@@ -149,7 +150,7 @@ bool solveKiller(SudokuBoard* sb, placedNum* backtracker){
     int row, col;
 
     // If there is no empty space, we are done
-    if (!find_empty_cell(sb, &row, &col))
+   if (!find_empty_cell(sb, &row, &col))
         return true;
     // Try numbers 1-N in the empty cell
     for (int num = 1; num <= N; num++) {
@@ -157,20 +158,22 @@ bool solveKiller(SudokuBoard* sb, placedNum* backtracker){
         if (is_safe(sb, row, col, num)) {
         
             place_number(sb, row, col, num, sb->board[row][col].cage_id);
-            applyRuleOfNecessityForCell(sb,row,col);
-            placedNum val;
-            val.row=row; val.col = col; val.cageID=sb->board[row][col].cage_id; val.num=num;
-            append(backtracker, val);
+            applyRuleOfNecessityForCell(sb,&row,&col);
+            append(backtracker, (placedNum){.row = row, .col = col, .cageID = sb->board[row][col].cage_id, .num = num});
+
             
             
 
             // Recursively try to fill the rest of the board
-            if (solveKiller(sb, backtracker))
+            if (solveKiller(sb, backtracker)){
                 return true;
+            }
+            else{
+                // If it leads to no solution, reset the cell
+                remove_number(sb, row, col, num, sb->board[row][col].cage_id);
+                removeBacktrackers(sb,backtracker);
+            }
 
-            // If it leads to no solution, reset the cell
-            remove_number(sb, row, col, num, sb->board[row][col].cage_id);
-            removeBacktrackers(sb,backtracker);
         }
     }
     return false;  // No valid number found, trigger backtrack
@@ -276,60 +279,74 @@ bool applyRuleOfNecessityCages(SudokuBoard* sb){
     return true;
 }
 
-bool applyRuleOfNecessityForCell(SudokuBoard* sb, int row, int col) {
+bool applyRuleOfNecessityForCell(SudokuBoard* sb, int *row, int *col) {
     bool changedGrid = false;
     
     // Adjust for the grid, row, and column of the altered cell
-    int numberMissingValuesRow = 0;
-    int numberMissingValuesColumn = 0;
-    int numberMissingValuesGrid = 0;
+    int numberMissingValues = 0;
     bool valueIsMissing;
+    int missingValue;
+    int missingIndex;
 
-    // Check row
+
+    // cols
     for (int valueIterator = 1; valueIterator <= N; valueIterator++) {
-        valueIsMissing = !sb->row[row][valueIterator];
-        if (valueIsMissing) numberMissingValuesRow++;
+        valueIsMissing = !sb->col[*col][valueIterator];
+        if (valueIsMissing){
+            missingValue=valueIterator;
+            numberMissingValues++;
+        } 
     }
+    if (numberMissingValues == 1) {
+        for (int rowIterator = 0; rowIterator < N; rowIterator++) {
+            int cellValue = sb->board[rowIterator][*col].value;
 
-    // Check column
-    for (int valueIterator = 1; valueIterator <= N; valueIterator++) {
-        valueIsMissing = !sb->col[col][valueIterator];
-        if (valueIsMissing) numberMissingValuesColumn++;
-    }
-
-    // Check grid (calculate grid index)
-    int gridRowStart = (row / SUBGRID_SIZE) * SUBGRID_SIZE;
-    int gridColStart = (col / SUBGRID_SIZE) * SUBGRID_SIZE;
-    for (int i = gridRowStart; i < gridRowStart + SUBGRID_SIZE; i++) {
-        for (int j = gridColStart; j < gridColStart + 3; j++) {
-            valueIsMissing = !sb->grid[i * 3 + j];
-            if (valueIsMissing) numberMissingValuesGrid++;
+            if (cellValue == 0) {
+               missingIndex=rowIterator;
+            }
+        } 
+        if (is_safe(sb, missingIndex, *col, missingValue)) {
+            place_number(sb, missingIndex, *col, missingValue, sb->board[missingIndex][*col].cage_id);
+            *row = missingIndex;  // Update row
+            *col = *col;  // Column remains the same
+            return true;
+        }
+        else{
+            return false;
         }
     }
 
-    bool res = true;
-
-    // Apply rule if exactly one missing value in any of the regions
-    int grid =(row / SUBGRID_SIZE) * SUBGRID_SIZE + (col / SUBGRID_SIZE);   
-
-    if (numberMissingValuesColumn == 1) {
-        res = insertMissingNecessityNumber(sb, col, "column");
-        changedGrid = true;
-    } else if (numberMissingValuesRow == 1) {
-        res = insertMissingNecessityNumber(sb, row, "row");
-        changedGrid = true;
-    } else if (numberMissingValuesGrid == 1) {
-        res = insertMissingNecessityNumber(sb, grid, "grid");
-        changedGrid = true;
+    //ROW
+    for (int valueIterator = 1; valueIterator <= N; valueIterator++) {
+        valueIsMissing = !sb->row[*row][valueIterator];
+        if (valueIsMissing){
+            numberMissingValues++;
+            missingValue=valueIterator;
+        }
     }
+    if (numberMissingValues == 1) {
+        for (int colIterator = 0; colIterator < N; colIterator++) {
+            int cellValue = sb->board[*row][colIterator].value;
 
-    if (!res) return false;
+            if (cellValue == 0) {
+                    missingIndex = colIterator;
+                }
+        }
+            if (is_safe(sb, *row, missingIndex, missingValue)) {
+                place_number(sb, *row, missingIndex, missingValue, sb->board[*row][missingIndex].cage_id);
+                *col = missingIndex;  // Update column
+                *row = *row;  // Row remains the same
+            }
+            else{
+                return false;
+            }
+        }
 
-    // Recursively apply rule if the grid has changed
-    //if (changedGrid) applyRuleOfNecessityForCell(sb, row, col);
-
+    
     return true;
 }
+
+
 //////////////////////
 // GRID OPERATIONS //
 //////////////////////
@@ -862,7 +879,8 @@ void runNecessityTest(){
     update_cage_sums(&testBoard);
     update_cage_sums(&sb); 
     print_board(&testBoard);
-    applyRuleOfNecessityForCell(&testBoard,0,1);
+    int row = 0; int col=1;
+    applyRuleOfNecessityForCell(&testBoard,&row,&col);
     update_cage_sums(&testBoard);
     print_board(&testBoard);
 
