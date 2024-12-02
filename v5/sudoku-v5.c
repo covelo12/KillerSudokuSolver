@@ -7,7 +7,7 @@
 #define N 64
 #define SUBGRID_SIZE (int)(sqrt(N))         
 #define MAX_CAGES (N* N)
-#define ELEMENTS_REMOVED 800
+#define ELEMENTS_REMOVED 1000
 #define CAGE_SIZE 40
 #define STRATEGY "TACTICS"  // BACKTRACK= Solving with bruteforce TACTICS=Solves with tatics for killer
 // Cell struct for individual Sudoku cells
@@ -353,24 +353,6 @@ bool applyRuleOfNecessityForCell(SudokuBoard* sb, int *row, int *col, int* num) 
 //////////////////////
 // GRID OPERATIONS //
 //////////////////////
-void removeBacktrackers(SudokuBoard *sb, placedNum backtracker[]){
-    int i =0;
-    bool isEmpty = backtracker[i].row == -1 || backtracker[i].col == -1 || backtracker[i].num == -1 || backtracker[i].cageID == -1;
-    while (!isEmpty)
-    {
-        int row, col, num, cage_id;
-        row = backtracker[i].row;
-        col = backtracker[i].col;
-        num = backtracker[i].num;
-        cage_id = backtracker[i].cageID;
-
-        placedNum aux; aux.col=-1;aux.row=-1;aux.num=-1;aux.cageID=-1;
-        remove_number(sb,row, col,num,cage_id);
-        backtracker[i]=aux; 
-        i++;
-        isEmpty = backtracker[i].row == -1 || backtracker[i].col == -1 || backtracker[i].num == -1 || backtracker[i].cageID == -1 || i==64;
-    }
-}
 
 bool insertMissingNecessityNumber(SudokuBoard* sb, int updateIndex, char* indexType) {
     int missingCellIndex = -1;
