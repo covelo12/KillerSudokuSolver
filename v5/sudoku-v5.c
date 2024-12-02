@@ -7,7 +7,7 @@
 #define N 64
 #define SUBGRID_SIZE (int)(sqrt(N))         
 #define MAX_CAGES (N* N)
-#define ELEMENTS_REMOVED 300
+#define ELEMENTS_REMOVED 800
 #define CAGE_SIZE 40
 #define STRATEGY "TACTICS"  // BACKTRACK= Solving with bruteforce TACTICS=Solves with tatics for killer
 // Cell struct for individual Sudoku cells
@@ -57,7 +57,7 @@ bool applyRuleOfNecessityCages(SudokuBoard* sb);
 bool insertMissingNecessityNumber(SudokuBoard* sb, int updateIndex, char* indexType);
 int sum_up_to(int n);
 void run_test_case() ;
-bool applyRuleOfNecessityForCell(SudokuBoard *sb, int* row, int* col);
+bool applyRuleOfNecessityForCell(SudokuBoard *sb, int* row, int* col, int* num);
 bool append(placedNum * arr, placedNum  val);
 void removeBacktrackers(SudokuBoard *sb, placedNum *backtracker);
 
@@ -158,10 +158,8 @@ bool solveKiller(SudokuBoard* sb, placedNum* backtracker){
         if (is_safe(sb, row, col, num)) {
         
             place_number(sb, row, col, num, sb->board[row][col].cage_id);
-            applyRuleOfNecessityForCell(sb,&row,&col);
-            append(backtracker, (placedNum){.row = row, .col = col, .cageID = sb->board[row][col].cage_id, .num = num});
-
-            
+            int row1=row; int col1  = col; int num1=num; int cage1=sb->board[row][col].cage_id;
+            applyRuleOfNecessityForCell(sb,&row,&col,&num);
             
 
             // Recursively try to fill the rest of the board
@@ -170,8 +168,8 @@ bool solveKiller(SudokuBoard* sb, placedNum* backtracker){
             }
             else{
                 // If it leads to no solution, reset the cell
-                remove_number(sb, row, col, num, sb->board[row][col].cage_id);
-                removeBacktrackers(sb,backtracker);
+                remove_number(sb, row1, col1, num1, cage1);
+                remove_number(sb, row, col, num,sb->board[row][col].cage_id );
             }
 
         }
@@ -279,7 +277,7 @@ bool applyRuleOfNecessityCages(SudokuBoard* sb){
     return true;
 }
 
-bool applyRuleOfNecessityForCell(SudokuBoard* sb, int *row, int *col) {
+bool applyRuleOfNecessityForCell(SudokuBoard* sb, int *row, int *col, int* num) {
     bool changedGrid = false;
     
     // Adjust for the grid, row, and column of the altered cell
@@ -309,6 +307,7 @@ bool applyRuleOfNecessityForCell(SudokuBoard* sb, int *row, int *col) {
             place_number(sb, missingIndex, *col, missingValue, sb->board[missingIndex][*col].cage_id);
             *row = missingIndex;  // Update row
             *col = *col;  // Column remains the same
+            *num = missingValue;
             return true;
         }
         else{
@@ -316,6 +315,7 @@ bool applyRuleOfNecessityForCell(SudokuBoard* sb, int *row, int *col) {
         }
     }
 
+    numberMissingValues =0;
     missingValue=0;
     //ROW
     for (int valueIterator = 1; valueIterator <= N; valueIterator++) {
@@ -333,16 +333,18 @@ bool applyRuleOfNecessityForCell(SudokuBoard* sb, int *row, int *col) {
                     missingIndex = colIterator;
                 }
         }
-            if (is_safe(sb, *row, missingIndex, missingValue)) {
-                place_number(sb, *row, missingIndex, missingValue, sb->board[*row][missingIndex].cage_id);
-                *col = missingIndex;  // Update column
-                *row = *row;  // Row remains the same
-            }
-            else{
-                return false;
-            }
+        if (is_safe(sb, *row, missingIndex, missingValue)) {
+            place_number(sb, *row, missingIndex, missingValue, sb->board[*row][missingIndex].cage_id);
+            *col = missingIndex;  // Update column
+            *num = missingValue;
         }
-        missingValue=0;
+        else{
+            return false;
+        }
+    }
+
+    numberMissingValues =0;
+    missingValue=0;
     
     return true;
 }
@@ -880,8 +882,8 @@ void runNecessityTest(){
     update_cage_sums(&testBoard);
     update_cage_sums(&sb); 
     print_board(&testBoard);
-    int row = 0; int col=1;
-    applyRuleOfNecessityForCell(&testBoard,&row,&col);
+    int row = 0; int col=1; int num =0;
+    applyRuleOfNecessityForCell(&testBoard,&row,&col,  &num);
     update_cage_sums(&testBoard);
     print_board(&testBoard);
 
