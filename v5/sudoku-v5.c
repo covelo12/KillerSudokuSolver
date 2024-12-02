@@ -6,7 +6,7 @@
 #include <string.h>
 #define N 64
 #define SUBGRID_SIZE (int)(sqrt(N))         
-#define MAX_CAGES (N * N)
+#define MAX_CAGES (N* N)
 #define ELEMENTS_REMOVED 300
 #define CAGE_SIZE 40
 #define STRATEGY "TACTICS"  // BACKTRACK= Solving with bruteforce TACTICS=Solves with tatics for killer
@@ -316,6 +316,7 @@ bool applyRuleOfNecessityForCell(SudokuBoard* sb, int *row, int *col) {
         }
     }
 
+    missingValue=0;
     //ROW
     for (int valueIterator = 1; valueIterator <= N; valueIterator++) {
         valueIsMissing = !sb->row[*row][valueIterator];
@@ -341,7 +342,7 @@ bool applyRuleOfNecessityForCell(SudokuBoard* sb, int *row, int *col) {
                 return false;
             }
         }
-
+        missingValue=0;
     
     return true;
 }
@@ -365,7 +366,7 @@ void removeBacktrackers(SudokuBoard *sb, placedNum backtracker[]){
         remove_number(sb,row, col,num,cage_id);
         backtracker[i]=aux; 
         i++;
-        isEmpty = backtracker[i].row == -1 || backtracker[i].col == -1 || backtracker[i].num == -1 || backtracker[i].cageID == -1;
+        isEmpty = backtracker[i].row == -1 || backtracker[i].col == -1 || backtracker[i].num == -1 || backtracker[i].cageID == -1 || i==64;
     }
 }
 
