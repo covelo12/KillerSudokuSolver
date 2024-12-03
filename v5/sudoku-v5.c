@@ -1,3 +1,5 @@
+
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -51,13 +53,15 @@ void update_cage_sums(SudokuBoard* sb);
 bool find_empty_cell(SudokuBoard* sb, int *row, int *col);
 void place_number(SudokuBoard* sb, int row, int col, int num, int cage_id);
 void remove_number(SudokuBoard* sb, int row, int col, int num, int cage_id);
-bool solveKiller(SudokuBoard* sb, placedNum* backtracker);
+bool solveKiller(SudokuBoard* sb);
 bool applyRuleOfNecessity(SudokuBoard* sb);
 bool applyRuleOfNecessityCages(SudokuBoard* sb);
 bool insertMissingNecessityNumber(SudokuBoard* sb, int updateIndex, char* indexType);
 int sum_up_to(int n);
 void run_test_case() ;
 bool applyRuleOfNecessityForCell(SudokuBoard *sb, int* row, int* col, int* num);
+void runSpeedTest();
+
 bool append(placedNum * arr, placedNum  val);
 void removeBacktrackers(SudokuBoard *sb, placedNum *backtracker);
 
@@ -71,21 +75,33 @@ const char* colors[] = {
     "\033[0;37m", // White
 };
 
-int main(void) {
+int main(int argc, char *argv[]) {
     int choice;
-    printf("What would you like to do?\n");
-    printf("1. Run test case\n");
-    printf("2. Run solver\n");
-    printf("Please enter your choice (1 or 2): ");
-    
-    // Read user input
-    scanf("%d", &choice);
+
+    // Check if an argument was passed
+    if (argc < 2) {
+        printf("Usage: %s <choice>\n", argv[0]);
+        printf("Choices:\n");
+        printf("  1 - Run test case\n");
+        printf("  2 - Run solver\n");
+        printf("  2 - Run Speed Test\n");
+        return 1; // Exit with an error code
+    }
+
+    // Convert the argument to an integer
+    choice = atoi(argv[1]);
 
     // Execute based on user choice
     if (choice == 1) {
         run_test_case();
         exit(4);
     }
+    else if (choice == 3)
+    {
+        runSpeedTest();
+        exit(4);
+    }
+    
     srand(time(NULL));
     
     SudokuBoard sb;
@@ -106,7 +122,7 @@ int main(void) {
     update_cage_sums(&sb);
 
     //printf("\nKILLER SUDOKU RuleOfNecessity!\n");
-    applyRuleOfNecessity(&sb);
+    //applyRuleOfNecessity(&sb);
     //print_board(&sb);
     //printf("\nKILLER SUDOKU RuleOfNecessity Cages!\n");
     
@@ -115,12 +131,7 @@ int main(void) {
     
     // Cronometrando o tempo de solução
     clock_t timingStart = clock();
-    placedNum aux; aux.col=-1;aux.row=-1;aux.num=-1;aux.cageID=-1;
-    placedNum backtracker[65];
-    for (int i =0; i<65; i++){
-        backtracker[i]=aux;
-    }
-    solveKiller(&sb, backtracker);
+    solveKiller(&sb);
     clock_t timingEnd = clock();
     
     double solving_time = (double)(timingEnd - timingStart) / CLOCKS_PER_SEC;
@@ -139,7 +150,7 @@ int main(void) {
 ////////////////// 
 // 
 
-bool solveKiller(SudokuBoard* sb, placedNum* backtracker){
+bool solveKiller(SudokuBoard* sb){
    if(strcmp(STRATEGY,"BACKTRACK") == 0){
         return solve_sudoku(sb);
    }
@@ -159,11 +170,11 @@ bool solveKiller(SudokuBoard* sb, placedNum* backtracker){
         
             place_number(sb, row, col, num, sb->board[row][col].cage_id);
             int row1=row; int col1  = col; int num1=num; int cage1=sb->board[row][col].cage_id;
-            applyRuleOfNecessityForCell(sb,&row,&col,&num);
+            applyRuleOfNecessityForCell(sb,&row1,&col1,&num1);
             
 
             // Recursively try to fill the rest of the board
-            if (solveKiller(sb, backtracker)){
+            if (solveKiller(sb)){
                 return true;
             }
             else{
@@ -495,20 +506,28 @@ bool find_empty_cell(SudokuBoard* sb, int *row, int *col) {
 }
 
 void remove_elements(SudokuBoard* sb, int holes) {
-    // Randomly remove 'holes' number of elements from the board
+    SudokuBoard tempBoard = *sb;
+
     for (int i = 0; i < holes; i++) {
         int row = rand() % N;
         int col = rand() % N;
 
-        // Ensure we're removing an existing number, not an already empty cell
         while (sb->board[row][col].value == 0) {
             row = rand() % N;
             col = rand() % N;
         }
-        
-        remove_number(sb, row, col, sb->board[row][col].value, 0);
+
+        int value = sb->board[row][col].value;
+        remove_number(sb, row, col, value, sb->board[row][col].cage_id);
+
+        // Test solvability after removal
+        if (!solveKiller(&tempBoard)) {
+            // If unsolvable, undo removal
+            place_number(sb, row, col, value, sb->board[row][col].cage_id);
+        }
     }
 }
+
 
 void update_cage_sums(SudokuBoard* sb) {
     // Initialize curr sums
@@ -876,4 +895,53 @@ void runNecessityTest(){
         printf("\033[0;31m Test 1 Failed!\033[0m\n");
 
     }
+}
+
+void runSpeedTest() {
+
+    int NUM_ITERATIONS = 10;
+    srand(time(NULL));
+    
+    double total_tactics_time = 0.0;
+    double total_backtrack_time = 0.0;
+
+    for (int i = 0; i < NUM_ITERATIONS; i++) {
+        SudokuBoard sb;
+        init_sudoku_board(&sb);
+        
+        create_cages(&sb);
+        
+        remove_elements(&sb, ELEMENTS_REMOVED);
+        
+        update_cage_sums(&sb);
+
+        SudokuBoard backtrackingBoard = sb;
+
+        // Time for applying tactics
+        clock_t timingStart = clock();
+        applyRuleOfNecessity(&sb);
+        applyRuleOfNecessityCages(&sb);
+        
+        solveKiller(&sb);  // Solve using Killer Sudoku tactics
+        clock_t timingEnd = clock();
+        
+        double solving_time_tactics = (double)(timingEnd - timingStart) / CLOCKS_PER_SEC;
+        total_tactics_time += solving_time_tactics;
+
+        // Time for backtracking
+        timingStart = clock();
+        solve_sudoku(&backtrackingBoard);  // Solve using backtracking
+        timingEnd = clock();
+        
+        double solving_time_backtrack = (double)(timingEnd - timingStart) / CLOCKS_PER_SEC;
+        total_backtrack_time += solving_time_backtrack;
+    }
+
+    // Calculate and print average times
+    double average_tactics_time = total_tactics_time / NUM_ITERATIONS;
+    double average_backtrack_time = total_backtrack_time / NUM_ITERATIONS;
+
+    printf("\nKILLER SUDOKU SOLVED AVERAGE TIMES (over %d iterations)!\n", NUM_ITERATIONS);
+    printf("\nAverage Solution Time (Tactics): %.4f seconds\n", average_tactics_time);
+    printf("\nAverage Solution Time (Backtracking): %.4f seconds\n", average_backtrack_time);
 }
