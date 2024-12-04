@@ -86,7 +86,7 @@ int main(int argc, char *argv[]) {
         printf("Choices:\n");
         printf("  1 - Run test case\n");
         printf("  2 - Run solver\n");
-        printf("  2 - Run Speed Test\n");
+        printf("  3 - Run Speed Test\n");
         return 1; // Exit with an error code
     }
 
@@ -171,12 +171,15 @@ bool solveKiller(SudokuBoard* sb){
         if (is_safe(sb, row, col, num)) {
         
             place_number(sb, row, col, num, sb->board[row][col].cage_id);
-            sb->numberMissingValuesColumn[col]++ ;
-            sb->numberMissingValuesRow[row]++ ;
             int row1=row; int col1  = col; int num1=num; int cage1=sb->board[row][col].cage_id;
 
-            if(sb->numberMissingValuesColumn[col] || sb->numberMissingValuesRow[row])
+            if(sb->numberMissingValuesColumn[col] == 1 || sb->numberMissingValuesRow[row] == 1){
+                printf("Coolll %d\n", sb->numberMissingValuesColumn[col1]);
+                printf("Rowwww %d\n", sb->numberMissingValuesRow[row1]);
                 applyRuleOfNecessityForCell(sb,&row1,&col1,&num1);
+                
+            }
+                
             
             // Recursively try to fill the rest of the board
             if (solveKiller(sb)){
@@ -186,8 +189,6 @@ bool solveKiller(SudokuBoard* sb){
                 // If it leads to no solution, reset the cell
                 remove_number(sb, row1, col1, num1, cage1);
                 remove_number(sb, row, col, num,sb->board[row][col].cage_id );
-                sb->numberMissingValuesColumn[col] -=2 ;
-                sb->numberMissingValuesRow[row] -=2 ;
             }
 
         }
@@ -225,12 +226,10 @@ bool applyRuleOfNecessity(SudokuBoard* sb){
         bool res=true;
         if (numberMissingValuesColumn == 1) {
             res=insertMissingNecessityNumber(sb, arrayIterator,"column" );
-            sb->numberMissingValuesColumn[arrayIterator] = numberMissingValuesColumn + 1;
             changedGrid=true;
         }
         else if (numberMissingValuesRow == 1) {
             res=insertMissingNecessityNumber(sb, arrayIterator,"row" );
-            sb->numberMissingValuesRow[arrayIterator] = numberMissingValuesRow + 1;
             changedGrid=true;
         }
         else if (numberMissingValuesGrid == 1) {
@@ -288,7 +287,7 @@ bool applyRuleOfNecessityCages(SudokuBoard* sb){
             {
                 place_number(sb, row, col, cagesums[l], cageID);
                 l++;
-                changedGrid = true;
+                changedGrid = true; 
             }
 
         }    
@@ -310,24 +309,23 @@ bool applyRuleOfNecessityForCell(SudokuBoard* sb, int *row, int *col, int* num) 
 
 
     // cols
-    for (int valueIterator = 1; valueIterator <= N; valueIterator++) {
-        valueIsMissing = !sb->col[*col][valueIterator];
-        if (valueIsMissing){
-            missingValue=valueIterator;
-            numberMissingValues++;
-        } 
-    }
-    if (numberMissingValues == 1) {
+    if (sb->numberMissingValuesColumn[*col] == 1) {
         for (int rowIterator = 0; rowIterator < N; rowIterator++) {
             int cellValue = sb->board[rowIterator][*col].value;
 
             if (cellValue == 0) {
                missingIndex=rowIterator;
             }
+            missingValue += cellValue;
         } 
+
+        missingValue = ((N * (N + 1)) / 2) - missingValue;
         if (is_safe(sb, missingIndex, *col, missingValue)) {
+            printf("\t Col %d\n", sb->numberMissingValuesColumn[*col]);
+            printf("\tRow %d\n", sb->numberMissingValuesRow[missingIndex]);
             place_number(sb, missingIndex, *col, missingValue, sb->board[missingIndex][*col].cage_id);
-            sb->numberMissingValuesColumn[*col]++ ;
+            printf("\t Col %d\n", sb->numberMissingValuesColumn[*col]);
+            printf("\tRow %d\n", sb->numberMissingValuesRow[missingIndex]);
             *row = missingIndex;  // Update row
             *col = *col;  // Column remains the same
             *num = missingValue;
@@ -339,7 +337,7 @@ bool applyRuleOfNecessityForCell(SudokuBoard* sb, int *row, int *col, int* num) 
     }
 
     numberMissingValues =0;
-    missingValue=0;
+    missingValue =0;
     //ROW
     for (int valueIterator = 1; valueIterator <= N; valueIterator++) {
         valueIsMissing = !sb->row[*row][valueIterator];
@@ -355,10 +353,12 @@ bool applyRuleOfNecessityForCell(SudokuBoard* sb, int *row, int *col, int* num) 
             if (cellValue == 0) {
                     missingIndex = colIterator;
                 }
+
         }
         if (is_safe(sb, *row, missingIndex, missingValue)) {
             place_number(sb, *row, missingIndex, missingValue, sb->board[*row][missingIndex].cage_id);
-            sb->numberMissingValuesRow[*row]++ ;
+            printf("\t Col %d\n", sb->numberMissingValuesColumn[missingIndex]);
+            printf("\tRow %d\n", sb->numberMissingValuesRow[*row]);
             *col = missingIndex;  // Update column
             *num = missingValue;
         }
@@ -476,6 +476,10 @@ void place_number(SudokuBoard* sb, int row, int col, int num, int cage_id) {
     sb->row[row][num] = true;
     sb->col[col][num] = true;
     sb->grid[(row / SUBGRID_SIZE) * SUBGRID_SIZE + col / SUBGRID_SIZE][num] = true;
+    if (sb->numberMissingValuesColumn[col] != N * N * -1 || sb->numberMissingValuesRow[row] != N * N * -1){
+        sb->numberMissingValuesColumn[col] -= 1;
+        sb->numberMissingValuesRow[row] -=1;
+    }
 }
 
 void remove_number(SudokuBoard* sb, int row, int col, int num, int cage_id) {
@@ -485,6 +489,10 @@ void remove_number(SudokuBoard* sb, int row, int col, int num, int cage_id) {
     sb->row[row][num] = false;
     sb->col[col][num] = false;
     sb->grid[(row / SUBGRID_SIZE) * SUBGRID_SIZE + col / SUBGRID_SIZE][num] = false;
+    if (sb->numberMissingValuesColumn[col] != N * N * -1 || sb->numberMissingValuesRow[row] != N * N * -1){
+        sb->numberMissingValuesColumn[col] += 1;
+        sb->numberMissingValuesRow[row] += 1;
+    }    
 }
 
 bool is_safe(SudokuBoard* sb, int row, int col, int num) {
@@ -749,6 +757,14 @@ int fixed_board[N][N] = {
         }
     }
 
+    for (int i = 0; i < N; i++)
+    {
+        sb->numberMissingValuesColumn[i] = N * N * -1;
+        sb->numberMissingValuesRow[i] = N * N * -1;
+    }
+    
+    
+
 }
 
 
@@ -913,7 +929,7 @@ void runNecessityTest(){
 
 void runSpeedTest() {
 
-    int NUM_ITERATIONS = 100;
+    int NUM_ITERATIONS = 1000;
     srand(time(NULL));
     
     double total_tactics_time = 0.0;
